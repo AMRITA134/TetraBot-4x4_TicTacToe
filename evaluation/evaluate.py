@@ -27,7 +27,7 @@ NUM_GAMES = 1000
 MODEL_PATH = os.path.join(
     PROJECT_ROOT,
     "models",
-    "ddqn_4x4_x_minimax.pth"
+    "ddqn_4x4_x_minimax_shaped.pth"
 )
 
 
