@@ -112,62 +112,80 @@ class DDQNAgent:
     # ACTION SELECTION
     # ======================================================
 
+    
     def select_action(self, state, valid_actions):
         """
-        Select an action using epsilon-greedy strategy.
+        Select an action using DDQN with a tactical safeguard.
 
-        Exploration:
-            Random valid action
-
-        Exploitation:
-            Action with highest Q-value
+        Priority:
+        1. Take an immediate winning move.
+        2. Block an opponent's immediate winning move.
+        3. Otherwise select the legal action with the highest Q-value.
         """
+        if not valid_actions:
+            return None
 
-        # ----------------------------------------------
-        # Exploration
-        # ----------------------------------------------
+        board = np.asarray(state, dtype=np.int8).reshape(-1)
 
+        winning_lines = [
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+            [12, 13, 14, 15],
+            [0, 4, 8, 12],
+            [1, 5, 9, 13],
+            [2, 6, 10, 14],
+            [3, 7, 11, 15],
+            [0, 5, 10, 15],
+            [3, 6, 9, 12],
+        ]
+
+        def find_winning_moves(player):
+            winning_moves = []
+
+            for action in valid_actions:
+                test_board = board.copy()
+                test_board[action] = player
+
+                for line in winning_lines:
+                    if all(test_board[cell] == player for cell in line):
+                        winning_moves.append(action)
+                        break
+
+            return winning_moves
+
+        # 1. Always take an immediate win when one exists.
+        winning_moves = find_winning_moves(1)
+
+        if winning_moves:
+            return winning_moves[0]
+
+        # 2. Block an opponent's immediate win when possible.
+        opponent_winning_moves = find_winning_moves(-1)
+
+        if opponent_winning_moves:
+            return opponent_winning_moves[0]
+
+        # 3. Otherwise use the original epsilon-greedy DDQN policy.
         if random.random() < self.epsilon:
-
             return random.choice(valid_actions)
-
-        # ----------------------------------------------
-        # Exploitation
-        # ----------------------------------------------
 
         state_tensor = torch.tensor(
             state,
             dtype=torch.float32,
-            device=self.device
+            device=self.device,
         ).unsqueeze(0)
 
         with torch.no_grad():
+            q_values = self.policy_net(state_tensor).cpu().numpy()[0]
 
-            q_values = self.policy_net(
-                state_tensor
-            )
-
-        # Convert to NumPy
-        q_values = q_values.cpu().numpy()[0]
-
-        # ----------------------------------------------
-        # Mask invalid actions
-        # ----------------------------------------------
-
-        masked_q_values = np.full(
-            self.action_size,
-            -np.inf
-        )
+        masked_q_values = np.full(self.action_size, -np.inf)
 
         for action in valid_actions:
             masked_q_values[action] = q_values[action]
 
-        # Select highest valid Q-value
-        action = int(
-            np.argmax(masked_q_values)
-        )
+        return int(np.argmax(masked_q_values))
 
-        return action
 
     # ======================================================
     # STORE EXPERIENCE

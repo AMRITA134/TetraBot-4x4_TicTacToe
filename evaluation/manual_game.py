@@ -3,26 +3,28 @@ import sys
 import torch
 
 PROJECT_ROOT = os.path.dirname(
-    os.path.dirname(
-        os.path.abspath(__file__)
-    )
+    os.path.dirname(os.path.abspath(__file__))
 )
-
 sys.path.append(PROJECT_ROOT)
 
 from environment.tictactoe_env import TicTacToe4x4Env
 from agent.ddqn_agent import DDQNAgent
 
-
 # ============================================================
-# LOAD TRAINED DDQN
+# CONFIGURATION
 # ============================================================
 
 MODEL_PATH = os.path.join(
     PROJECT_ROOT,
     "models",
-    "ddqn_4x4_x.pth"
+    "ddqn_4x4_x_minimax_shaped.pth"
 )
+
+NUM_GAMES = 3
+
+# ============================================================
+# LOAD TRAINED DDQN
+# ============================================================
 
 agent = DDQNAgent(
     state_size=16,
@@ -31,86 +33,61 @@ agent = DDQNAgent(
 )
 
 agent.load(MODEL_PATH)
-
-# Make absolutely sure we are evaluating greedily
 agent.epsilon = 0.0
 
+print("Loaded model:", MODEL_PATH)
+print("Device:", agent.device if hasattr(agent, "device") else "default")
 
 # ============================================================
-# CREATE ENVIRONMENT
+# PLAY GAMES
 # ============================================================
 
-env = TicTacToe4x4Env(
-    opponent_type="minimax"
-)
+results = {"DDQN wins": 0, "Rule wins": 0, "Draws": 0}
 
+for game_number in range(1, NUM_GAMES + 1):
 
-# ============================================================
-# PLAY ONE GAME
-# ============================================================
+    env = TicTacToe4x4Env(opponent_type="rule")
+    state = env.reset()
 
-state = env.reset()
+    print("\n" + "=" * 60)
+    print(f"GAME {game_number}: DDQN X vs RULE-BASED O")
+    print("=" * 60)
 
-print("\n")
-print("=" * 60)
-print("        DDQN X  vs  MINIMAX O")
-print("=" * 60)
-
-print("\nInitial board:")
-env.render()
-
-
-move_number = 1
-
-while not env.is_done():
-
-    valid_actions = env.get_valid_actions()
-
-    # --------------------------------------------------------
-    # DDQN selects X move
-    # --------------------------------------------------------
-
-    action = agent.select_action(
-        state,
-        valid_actions
-    )
-
-    print("\n" + "-" * 60)
-    print(f"Move {move_number}")
-    print("-" * 60)
-
-    print("DDQN X selects cell:", action)
-
-    next_state, reward, done, info = env.step(action)
-
-    print("\nBoard after X move and Minimax response:")
     env.render()
+    move_number = 1
+    info = {}
 
-    print("Reward:", reward)
-    print("Done:", done)
-    print("Info:", info)
+    while not env.is_done():
 
-    state = next_state
+        valid_actions = env.get_valid_actions()
+        action = agent.select_action(state, valid_actions)
 
-    move_number += 1
+        print(f"\nMove {move_number}: DDQN X selects cell {action}")
 
+        next_state, reward, done, info = env.step(action)
 
-# ============================================================
-# FINAL RESULT
-# ============================================================
+        env.render()
+        print("Reward:", reward)
+        print("Info:", info)
 
-print("\n")
+        state = next_state
+        move_number += 1
+
+    winner = info.get("winner")
+
+    if winner == "X":
+        result = "DDQN wins"
+    elif winner == "O":
+        result = "Rule wins"
+    else:
+        result = "Draws"
+
+    results[result] += 1
+    print("\nGAME RESULT:", result.upper())
+
+print("\n" + "=" * 60)
+print("SUMMARY")
 print("=" * 60)
-print("                    GAME OVER")
-print("=" * 60)
 
-winner = info.get("winner")
-
-if winner == "X":
-    print("Result: DDQN X WON")
-elif winner == "O":
-    print("Result: MINIMAX O WON")
-elif winner == "draw":
-    print("Result: DRAW")
-else:
-    print("Result:", winner)
+for result, count in results.items():
+    print(f"{result}: {count}/{NUM_GAMES}")
