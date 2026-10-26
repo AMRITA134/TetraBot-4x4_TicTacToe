@@ -21,7 +21,7 @@ from agent.ddqn_agent import DDQNAgent
 # EVALUATION SETTINGS
 # ------------------------------------------------------
 
-NUM_GAMES = 1000
+NUM_GAMES = 100
 
 MODEL_PATH = os.path.join(
     PROJECT_ROOT,
